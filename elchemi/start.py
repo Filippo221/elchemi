@@ -1,11 +1,12 @@
-import sys
 
-import click
-from PyQt5.QtWidgets import QApplication
+import sys
+sys.path.append('/Users/fg/LPL/Code/Elchemi/elchemi')
 
 from elchemi.experiments.live_acquisition import LiveAcquisition
 from elchemi.view.main_window import DisplayWindow
 from elchemi.experiments.harmonic_analysis import AnalyzeModel
+import click
+from PyQt5.QtWidgets import QApplication
 
 
 @click.command()
@@ -19,3 +20,7 @@ def start(config):
     win.show()
 
     sys.exit(app.exec())
+
+
+start()
+

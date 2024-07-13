@@ -1,0 +1,20 @@
+camera:
+  name: ac-1900  # What is the name of the Basler Camera?
+  exposure: 50000  # in micro-seconds
+  gain: 10
+  width: 600
+  height: 600
+  xoffset: 204
+  yoffset: 204
+  Frame Rate: 
+
+daq:
+  frequencyw1: 0.5
+  amplitudew1: 0.1
+  frequencyw2: 10
+  amplitudew2: 5
+
+data:
+  min_cycles: 6
+  filename: Sprayed_ITO
+  total_frames: 500

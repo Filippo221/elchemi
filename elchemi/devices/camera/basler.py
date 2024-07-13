@@ -55,10 +55,12 @@ class BaslerCamera:
             raise CameraNotFound('No camera found')
 
         for device in devices:
+            print(device.GetFriendlyName())
             if self.camera in device.GetFriendlyName():
                 self._driver = pylon.InstantCamera()
                 self._driver.Attach(tl_factory.CreateDevice(device))
-                self._driver.Open()
+                if not self._driver.IsOpen():                    
+                    self._driver.Open()
                 self.friendly_name = device.GetFriendlyName()
 
         if not self._driver:
@@ -69,7 +71,35 @@ class BaslerCamera:
         self.logger.info(f'Loaded camera {self._driver.GetDeviceInfo().GetModelName()}')
         self.width = self.get_width()
         self.height = self.get_height()
+        self._driver.Open()
         self.pixel_format = self.get_pixelformat()
+
+    def StartGrabbing(self, grab):
+        if grab == 'OneByOne':
+            self._driver.StartGrabbing(pylon.GrabStrategy_OneByOne)
+            self.logger.info('Grab Strategy: One by One')
+        elif grab == 'LatestImage':
+            self._driver.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+            self.logger.info('Grab Strategy: Latest Image')
+        elif grab == 'LatestImages':
+            self._driver.StartGrabbing(pylon.GrabStrategy_LatestImages)
+            self.logger.info('Grab Strategy: Latest Images')
+
+    def read_one(self, timeout):
+        grabResult = self._driver.RetrieveResult(timeout, pylon.TimeoutHandling_Return)
+        if not grabResult.IsValid(): # checks if the results have been saved in the buffer
+            self.logger.warning(f'GrabResut is not valid, stopping results retrieve')
+            grabResult.Release()
+            return None
+        else:
+            return grabResult
+
+    def set_frame_rate(self, fps):
+        self._driver.AcquisitionFrameRateEnable.SetValue(True)
+        self._driver.AcquisitionFrameRate.SetValue(fps)
+
+    def StopGrabbing(self):
+        self._driver.StopGrabbing()
 
     def get_acquisition_mode(self):
         return self._acquisition_mode
@@ -91,7 +121,7 @@ class BaslerCamera:
     def get_exposure(self):
         return float(self._driver.ExposureTime.Value)
 
-    def set_exposue(self, exposure):
+    def set_exposure(self, exposure):
         """ Sets exposure time (in micro-s)
         """
         self._driver.ExposureTime.SetValue(exposure)
@@ -141,27 +171,23 @@ class BaslerCamera:
         vals = ((X_0, X_1), (Y_0, Y_1))
         In which each value defines a corner (and always _1>_0)
         """
-        X = vals[0]
-        Y = vals[1]
-        width = int(X[1] - X[1] % 4)
-        x_pos = int(X[0] - X[0] % 4)
-        height = int(Y[1] - Y[1] % 2)
-        y_pos = int(Y[0] - Y[0] % 2)
+        x_pos = vals[0]
+        y_pos = vals[1]
+        width = vals[2]
+        height = vals[3]
+        
         self.logger.info(f'Updating ROI: (x, y, width, height) = ({x_pos}, {y_pos}, {width}, {height})')
-        self._driver.OffsetX.SetValue(0)
-        self._driver.OffsetY.SetValue(0)
-
-        self._driver.Width.SetValue(self._driver.WidthMax.GetValue())
-        self._driver.Height.SetValue((self._driver.HeightMax.GetValue()))
-        self.logger.debug(f'Setting width to {width}')
+        
+        self.logger.debug(f'Setting width to {width} and height to {height}')
         self._driver.Width.SetValue(width)
         self.width = width
+
         self.logger.debug(f'Setting Height to {height}')
         self._driver.Height.SetValue(height)
         self.height = height
-        self.logger.debug(f'Setting X offset to {x_pos}')
+        
+        self.logger.debug(f'Setting X offset to {x_pos} and Y offset to {y_pos}')
         self._driver.OffsetX.SetValue(x_pos)
-        self.logger.debug(f'Setting Y offset to {y_pos}')
         self._driver.OffsetY.SetValue(y_pos)
         self.X = (x_pos, x_pos + width)
         self.Y = (y_pos, y_pos + height)
@@ -174,7 +200,8 @@ class BaslerCamera:
         elif pixel_format == 'Mono12' or pixel_format == 'Mono12p':
             self.current_dtype = np.uint16
         else:
-            self.logger.warning(f'Current pixel format is {pixel_format} while only Mono8, Mono12 and Mono12p are supported')
+            self.logger.info(f'Camera is set to {pixel_format}, images will be converted \
+                to Mono8 upon capture, some loss of accuracy could be caused')    
         return pixel_format
 
     def set_pixelformat(self, mode):
@@ -187,8 +214,6 @@ class BaslerCamera:
             self.current_dtype = np.uint8
         elif mode == 'Mono12' or mode == 'Mono12p':
             self.current_dtype = np.uint16
-        else:
-            self.logger.warning(f'Trying to set pixel_format to {mode}, which is not valid')
 
     def trigger_camera(self):
         self.logger.info(f'Triggering {self} with mode: {self._acquisition_mode}')

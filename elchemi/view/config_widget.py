@@ -5,7 +5,7 @@ from PyQt5 import uic
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMessageBox, QWidget
 from yaml.parser import ParserError
-
+sys.path.append('/Users/fg/LPL/Code/Elchemi/elchemi')
 from elchemi.view import VIEW_FOLDER
 
 
